@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 90;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -54,25 +54,21 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		E71DEFB02C192617008A2074 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 13;
+			dstSubfolder = PlugIns;
 			files = (
 				E71DEFAC2C192617008A2074 /* ALVREyeBroadcast.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E769ABF42C1CE6D900E016CE /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 				E769ABF32C1CE6D900E016CE /* ALVRClientCore.xcframework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -124,20 +120,16 @@
 /* Begin PBXFrameworksBuildPhase section */
 		C5E590272B6379ED00328ED6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				E769ABF22C1CE6D900E016CE /* ALVRClientCore.xcframework in Frameworks */,
 				E7285AAE2B9C44CB0032514C /* AVKit.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E71DEFA02C192617008A2074 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				E71DEFA52C192617008A2074 /* ReplayKit.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -273,8 +265,6 @@
 				E71DEFAB2C192617008A2074 /* PBXTargetDependency */,
 			);
 			name = ALVRClient;
-			packageProductDependencies = (
-			);
 			productName = ALVRClient;
 			productReference = C5E5902A2B6379ED00328ED6 /* ALVRClient.app */;
 			productType = "com.apple.product-type.application";
@@ -288,8 +278,6 @@
 				E71DEFA12C192617008A2074 /* Resources */,
 			);
 			buildRules = (
-			);
-			dependencies = (
 			);
 			name = ALVREyeBroadcast;
 			productName = ALVREyeBroadcast;
@@ -315,7 +303,6 @@
 				};
 			};
 			buildConfigurationList = C5E590252B6379ED00328ED6 /* Build configuration list for PBXProject "ALVRClient" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -325,6 +312,7 @@
 			mainGroup = C5E590212B6379ED00328ED6;
 			packageReferences = (
 			);
+			preferredProjectObjectVersion = 90;
 			productRefGroup = C5E5902B2B6379ED00328ED6 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -338,28 +326,23 @@
 /* Begin PBXResourcesBuildPhase section */
 		C5E590282B6379ED00328ED6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				C5E5903E2B6379EE00328ED6 /* Assets.xcassets in Resources */,
 				E7F222442BE2F21600D10191 /* SBSMaterial.usda in Resources */,
 				E7D606052C1B646D009E3343 /* EyeTrackingMats.usda in Resources */,
 				C5E5903C2B6379ED00328ED6 /* Preview Assets.xcassets in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E71DEFA12C192617008A2074 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		C5E590262B6379ED00328ED6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				E71DEF972C18D478008A2074 /* RealityKit.swift in Sources */,
 				E71DEF982C18D478008A2074 /* SwiftUI.swift in Sources */,
@@ -384,15 +367,12 @@
 				E71DEF9C2C18D4DA008A2074 /* simd.swift in Sources */,
 				8E739C8B2B78990B0045ED16 /* ViewModel.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E71DEF9F2C192617008A2074 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				E71DEFA82C192617008A2074 /* SampleHandler.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -405,7 +385,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		C5E590402B6379EE00328ED6 /* Debug */ = {
+		C5E590402B6379EE00328ED6 /* Debug configuration for PBXProject "ALVRClient" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -470,7 +450,7 @@
 			};
 			name = Debug;
 		};
-		C5E590412B6379EE00328ED6 /* Release */ = {
+		C5E590412B6379EE00328ED6 /* Release configuration for PBXProject "ALVRClient" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -528,7 +508,7 @@
 			};
 			name = Release;
 		};
-		C5E590432B6379EE00328ED6 /* Debug */ = {
+		C5E590432B6379EE00328ED6 /* Debug configuration for PBXNativeTarget "ALVRClient" */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D68FA8042B73D5DD0052B7FF /* ALVRClient.xcconfig */;
 			buildSettings = {
@@ -570,7 +550,7 @@
 			};
 			name = Debug;
 		};
-		C5E590442B6379EE00328ED6 /* Release */ = {
+		C5E590442B6379EE00328ED6 /* Release configuration for PBXNativeTarget "ALVRClient" */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D68FA8042B73D5DD0052B7FF /* ALVRClient.xcconfig */;
 			buildSettings = {
@@ -612,7 +592,7 @@
 			};
 			name = Release;
 		};
-		E71DEFAE2C192617008A2074 /* Debug */ = {
+		E71DEFAE2C192617008A2074 /* Debug configuration for PBXNativeTarget "ALVREyeBroadcast" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ALVREyeBroadcast/ALVREyeBroadcast.entitlements;
@@ -640,7 +620,7 @@
 			};
 			name = Debug;
 		};
-		E71DEFAF2C192617008A2074 /* Release */ = {
+		E71DEFAF2C192617008A2074 /* Release configuration for PBXNativeTarget "ALVREyeBroadcast" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ALVREyeBroadcast/ALVREyeBroadcast.entitlements;
@@ -674,28 +654,25 @@
 		C5E590252B6379ED00328ED6 /* Build configuration list for PBXProject "ALVRClient" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C5E590402B6379EE00328ED6 /* Debug */,
-				C5E590412B6379EE00328ED6 /* Release */,
+				C5E590402B6379EE00328ED6 /* Debug configuration for PBXProject "ALVRClient" */,
+				C5E590412B6379EE00328ED6 /* Release configuration for PBXProject "ALVRClient" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		C5E590422B6379EE00328ED6 /* Build configuration list for PBXNativeTarget "ALVRClient" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C5E590432B6379EE00328ED6 /* Debug */,
-				C5E590442B6379EE00328ED6 /* Release */,
+				C5E590432B6379EE00328ED6 /* Debug configuration for PBXNativeTarget "ALVRClient" */,
+				C5E590442B6379EE00328ED6 /* Release configuration for PBXNativeTarget "ALVRClient" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		E71DEFAD2C192617008A2074 /* Build configuration list for PBXNativeTarget "ALVREyeBroadcast" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E71DEFAE2C192617008A2074 /* Debug */,
-				E71DEFAF2C192617008A2074 /* Release */,
+				E71DEFAE2C192617008A2074 /* Debug configuration for PBXNativeTarget "ALVREyeBroadcast" */,
+				E71DEFAF2C192617008A2074 /* Release configuration for PBXNativeTarget "ALVREyeBroadcast" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
