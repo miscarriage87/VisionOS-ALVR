@@ -11,6 +11,8 @@
 // - AWDL detection (pollNALs)
 // - The main event thread (handleAlvrEvents)
 //
+// Enhanced with cloud gaming optimizations for Shadow PC + Vision Pro setup
+//
 
 import Foundation
 import Metal
@@ -88,15 +90,158 @@ class EventHandler: ObservableObject {
     var encodingGamma: Float = 1.0
     var enableHdr = false
     
-    init() {}
+    // Cloud gaming optimizations
+    var cloudOptimizedMode = true
+    var adaptiveBitrateEnabled = true
+    var currentBitrate: Int = 70 // Mbps
+    var targetBitrate: Int = 70 // Mbps
+    var minBitrate: Int = 30 // Mbps
+    var maxBitrate: Int = 70 // Mbps
+    var bitrateAdjustmentInterval = 1.0 // seconds
+    var lastBitrateAdjustment = 0.0
+    var bitrateAdjustmentFactor: Float = 1.0
+    var currentSceneAnalysis: SceneAnalysisResult?
+    var lastSceneAnalysisTime = 0.0
+    var sceneAnalysisInterval = 0.1 // seconds
+    var predictiveFrameGenerationEnabled = true
+    var frameQueueOptimalSize = 2
+    var frameLatencyHistory = [Double]()
+    var frameLatencyHistoryMaxSize = 30
+    var averageFrameLatency = 0.0
+    var networkBufferingStrategy: NetworkBufferingStrategy = .adaptive
+    var rtxOptimizationsEnabled = true
+    var hevcEncodingEnabled = true
+    var tenBitEncodingEnabled = true
+    var darkSceneBitrateBoostingEnabled = true
+    var motionAdaptiveQualityEnabled = true
+    var singleUserOptimized = true
+    var wifiBandwidthOptimized = true
+    var enhancedFoveatedRenderingEnabled = true
+    
+    // RTX A4500 specific optimization settings
+    var rtxEncoderPreset = "P5"
+    var rtxEncoderProfile = "high"
+    var rtxRateControlMode = "vbr"
+    var rtxQualityPreset = "quality"
+    
+    init() {
+        // Load settings from global store
+        updateCloudGamingSettings()
+    }
+    
+    // Update cloud gaming settings from global store
+    func updateCloudGamingSettings() {
+        let settings = ALVRClientApp.gStore.settings
+        
+        cloudOptimizedMode = settings.cloudOptimizedMode
+        adaptiveBitrateEnabled = settings.adaptiveBitrate
+        predictiveFrameGenerationEnabled = settings.predictiveFrameGeneration
+        
+        // Set bandwidth parameters
+        maxBitrate = settings.maxBitrate
+        minBitrate = settings.minBitrate
+        targetBitrate = maxBitrate
+        currentBitrate = targetBitrate
+        
+        // Set network buffering strategy
+        networkBufferingStrategy = settings.networkBufferingStrategy
+        frameQueueOptimalSize = settings.frameQueueSize
+        
+        // Set encoder preferences
+        hevcEncodingEnabled = settings.preferHEVC
+        tenBitEncodingEnabled = settings.prefer10BitEncoding
+        
+        // Set RTX A4500 optimizations
+        rtxOptimizationsEnabled = true
+        
+        switch settings.encoderPreset {
+        case .p1: rtxEncoderPreset = "P1"
+        case .p2: rtxEncoderPreset = "P2"
+        case .p3: rtxEncoderPreset = "P3"
+        case .p4: rtxEncoderPreset = "P4"
+        case .p5: rtxEncoderPreset = "P5"
+        case .p6: rtxEncoderPreset = "P6"
+        case .p7: rtxEncoderPreset = "P7"
+        }
+        
+        switch settings.encoderProfile {
+        case .main: rtxEncoderProfile = "main"
+        case .high: rtxEncoderProfile = "high"
+        case .main10: rtxEncoderProfile = "main10"
+        }
+        
+        switch settings.encoderRateControl {
+        case .cbr: rtxRateControlMode = "cbr"
+        case .vbr: rtxRateControlMode = "vbr"
+        case .cqp: rtxRateControlMode = "cqp"
+        }
+        
+        switch settings.encoderQualityPreset {
+        case .speed: rtxQualityPreset = "speed"
+        case .balanced: rtxQualityPreset = "balanced"
+        case .quality: rtxQualityPreset = "quality"
+        }
+        
+        // Scene analysis features
+        darkSceneBitrateBoostingEnabled = settings.darkSceneBitrateBoosting
+        motionAdaptiveQualityEnabled = settings.motionAdaptiveQuality
+        
+        // Foveated rendering integration
+        enhancedFoveatedRenderingEnabled = settings.enhancedFoveatedRendering
+        
+        // Single-user optimization
+        singleUserOptimized = settings.singleUserOptimized
+        
+        // WiFi 6E optimization
+        wifiBandwidthOptimized = true
+        
+        // Configure network buffer size based on strategy
+        switch networkBufferingStrategy {
+        case .minimal:
+            frameQueueOptimalSize = 1
+        case .balanced:
+            frameQueueOptimalSize = 2
+        case .adaptive:
+            frameQueueOptimalSize = 2 // Will be adjusted dynamically
+        case .aggressive:
+            frameQueueOptimalSize = 3
+        }
+    }
     
     func initializeAlvr() {
         fixAudioForDirectStereo()
         if !alvrInitialized {
             print("Initialize ALVR")
             alvrInitialized = true
-            let refreshRates:[Float] = [100, 96, 90]
-            let capabilities = AlvrClientCapabilities(default_view_width: UInt32(renderWidth*2), default_view_height: UInt32(renderHeight*2), refresh_rates: refreshRates, refresh_rates_count: UInt64(refreshRates.count), foveated_encoding: true, encoder_high_profile: true, encoder_10_bits: true, encoder_av1: VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1), prefer_10bit: true, prefer_full_range: true, preferred_encoding_gamma: 1.5, prefer_hdr: false)
+            
+            // Update cloud gaming settings
+            updateCloudGamingSettings()
+            
+            // Configure refresh rates based on settings
+            let refreshRates:[Float]
+            let refreshRateStr = ALVRClientApp.gStore.settings.streamFPS
+            if let fps = Float(refreshRateStr) {
+                refreshRates = [fps]
+            } else {
+                refreshRates = [90, 72, 60] // Default refresh rates
+            }
+            
+            // Enhanced capabilities for RTX A4500 + Vision Pro setup
+            let capabilities = AlvrClientCapabilities(
+                default_view_width: UInt32(renderWidth*2),
+                default_view_height: UInt32(renderHeight*2),
+                refresh_rates: refreshRates,
+                refresh_rates_count: UInt64(refreshRates.count),
+                foveated_encoding: enhancedFoveatedRenderingEnabled,
+                encoder_high_profile: rtxEncoderProfile == "high",
+                encoder_10_bits: tenBitEncodingEnabled,
+                encoder_av1: VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1),
+                prefer_10bit: tenBitEncodingEnabled,
+                prefer_full_range: true,
+                preferred_encoding_gamma: 1.5,
+                prefer_hdr: false
+            )
+            
             alvr_initialize(/*capabilities=*/capabilities)
             alvr_initialize_logging()
             alvr_set_decoder_input_callback(nil, { data in return EventHandler.shared.handleNals(frameData: data) })
@@ -139,6 +284,11 @@ class EventHandler: ObservableObject {
         framesSinceLastDecode = 0
         lastIpd = -1
         lastQueuedFrame = nil
+        
+        // Reset cloud gaming optimization state
+        frameLatencyHistory.removeAll()
+        averageFrameLatency = 0.0
+        currentSceneAnalysis = nil
         
         updateConnectionState(.disconnected)
     }
@@ -225,7 +375,17 @@ class EventHandler: ObservableObject {
             }
             
             if let listener = mdnsListener {
-                let txtRecord = NWTXTRecord(["protocol" : getMdnsProtocolId(), "device_id" : getHostname()])
+                let txtRecord = NWTXTRecord([
+                    "protocol" : getMdnsProtocolId(),
+                    "device_id" : getHostname(),
+                    // Add cloud gaming optimization flags
+                    "cloud_optimized": cloudOptimizedMode ? "1" : "0",
+                    "hevc_enabled": hevcEncodingEnabled ? "1" : "0",
+                    "10bit_enabled": tenBitEncodingEnabled ? "1" : "0",
+                    "rtx_optimized": rtxOptimizationsEnabled ? "1" : "0",
+                    "foveated_rendering": enhancedFoveatedRenderingEnabled ? "1" : "0",
+                    "wifi_optimized": wifiBandwidthOptimized ? "1" : "0"
+                ])
                 listener.service = NWListener.Service(name: "ALVR Apple Vision Pro", type: getMdnsService(), txtRecord: txtRecord)
 
                 // Handle errors if any
@@ -265,6 +425,96 @@ class EventHandler: ObservableObject {
         }
         
         timeLastSentPeriodicUpdatedValues = CACurrentMediaTime()
+        
+        // Update cloud gaming settings periodically
+        updateCloudGamingSettings()
+        
+        // Send enhanced foveated rendering parameters if enabled
+        if streamingActive && enhancedFoveatedRenderingEnabled && WorldTracker.shared.eyeTrackingEnhanced {
+            sendEnhancedFoveationParameters()
+        }
+        
+        // Adjust bitrate based on scene analysis if adaptive bitrate is enabled
+        if streamingActive && adaptiveBitrateEnabled {
+            adjustBitrateBasedOnSceneAnalysis()
+        }
+    }
+    
+    // Send enhanced foveation parameters to the server
+    func sendEnhancedFoveationParameters() {
+        if let enhancedSettings = WorldTracker.shared.enhancedFoveationSettings {
+            // Generate server config from enhanced settings
+            let config = FFR.generateServerConfig(from: ALVRClientApp.gStore.settings)
+            
+            // Convert to JSON
+            if let jsonData = try? JSONSerialization.data(withJSONObject: config, options: []),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                // Send to server
+                alvr_send_foveation_parameters(jsonString)
+            }
+        }
+    }
+    
+    // Adjust bitrate based on scene analysis
+    func adjustBitrateBasedOnSceneAnalysis() {
+        let currentTime = CACurrentMediaTime()
+        
+        // Only adjust bitrate periodically
+        if currentTime - lastBitrateAdjustment < bitrateAdjustmentInterval {
+            return
+        }
+        
+        lastBitrateAdjustment = currentTime
+        
+        // Start with base multiplier
+        var bitrateMultiplier: Float = 1.0
+        
+        // Apply dark scene boosting if enabled
+        if darkSceneBitrateBoostingEnabled, let sceneAnalysis = currentSceneAnalysis, sceneAnalysis.isDarkScene {
+            // Calculate darkness factor (0-1)
+            let darknessFactor = 1.0 - sceneAnalysis.averageLuminance / ALVRClientApp.gStore.settings.darkSceneDetectionThreshold
+            
+            // Apply dark scene bitrate boost
+            let darkSceneBoost = darknessFactor * (ALVRClientApp.gStore.settings.darkSceneBitrateMultiplier - 1.0)
+            bitrateMultiplier += darkSceneBoost
+            
+            print("Dark scene detected, boosting bitrate by factor: \(1.0 + darkSceneBoost)")
+        }
+        
+        // Apply motion-adaptive quality if enabled
+        if motionAdaptiveQualityEnabled, let sceneAnalysis = currentSceneAnalysis {
+            if sceneAnalysis.hasSignificantMotion {
+                // High motion scene - increase bitrate
+                let motionFactor = min(1.0, sceneAnalysis.motionMagnitude / 0.5)
+                let motionBoost = motionFactor * (ALVRClientApp.gStore.settings.motionBitrateMultiplier - 1.0)
+                bitrateMultiplier += motionBoost
+                
+                print("High motion detected, adjusting bitrate by factor: \(motionBoost)")
+            } else {
+                // Static scene - can reduce bitrate
+                bitrateMultiplier *= ALVRClientApp.gStore.settings.staticSceneBitrateMultiplier
+                
+                print("Static scene detected, reducing bitrate")
+            }
+        }
+        
+        // Calculate new target bitrate
+        let newTargetBitrate = Int(Float(maxBitrate) * bitrateMultiplier)
+        
+        // Clamp to min/max range
+        targetBitrate = max(minBitrate, min(maxBitrate, newTargetBitrate))
+        
+        // Gradually adjust current bitrate towards target
+        if currentBitrate < targetBitrate {
+            currentBitrate = min(targetBitrate, currentBitrate + 5)
+        } else if currentBitrate > targetBitrate {
+            currentBitrate = max(targetBitrate, currentBitrate - 5)
+        }
+        
+        // Send bitrate update to server
+        if streamingActive {
+            alvr_send_bitrate_update(Int32(currentBitrate * 1_000_000)) // Convert Mbps to bps
+        }
     }
     
     // Make sure the event thread is always running, sometimes it gets lost.
@@ -309,6 +559,117 @@ class EventHandler: ObservableObject {
         needsEncoderReset = true
     }
     
+    // Analyze frame content for adaptive quality
+    func analyzeFrame(imageBuffer: CVImageBuffer) {
+        let currentTime = CACurrentMediaTime()
+        
+        // Only analyze frames periodically to save performance
+        if currentTime - lastSceneAnalysisTime < sceneAnalysisInterval {
+            return
+        }
+        
+        lastSceneAnalysisTime = currentTime
+        
+        // Perform scene analysis
+        currentSceneAnalysis = FFR.analyzeFrameContent(imageBuffer: imageBuffer)
+    }
+    
+    // Track frame latency for adaptive buffering
+    func trackFrameLatency(timestamp: UInt64) {
+        let currentTime = CACurrentMediaTime()
+        
+        // Calculate frame latency in milliseconds
+        let frameTimestampMs = Double(timestamp) / 1_000_000.0
+        let currentTimeMs = currentTime * 1000.0
+        let latency = currentTimeMs - frameTimestampMs
+        
+        // Add to history
+        frameLatencyHistory.append(latency)
+        
+        // Limit history size
+        if frameLatencyHistory.count > frameLatencyHistoryMaxSize {
+            frameLatencyHistory.removeFirst()
+        }
+        
+        // Calculate average latency
+        if !frameLatencyHistory.isEmpty {
+            averageFrameLatency = frameLatencyHistory.reduce(0, +) / Double(frameLatencyHistory.count)
+        }
+        
+        // Adjust frame queue size based on network buffering strategy
+        if networkBufferingStrategy == .adaptive {
+            if averageFrameLatency > 80 {
+                // High latency - increase buffer
+                frameQueueOptimalSize = min(4, frameQueueOptimalSize + 1)
+            } else if averageFrameLatency < 40 && frameQueueOptimalSize > 1 {
+                // Low latency - decrease buffer
+                frameQueueOptimalSize = max(1, frameQueueOptimalSize - 1)
+            }
+        }
+    }
+    
+    // Create NVENC configuration for RTX A4500
+    func createRTXEncoderConfig() -> [String: Any] {
+        var config: [String: Any] = [:]
+        
+        // Basic encoder settings
+        config["codec"] = hevcEncodingEnabled ? "hevc" : "h264"
+        config["encoder_preset"] = rtxEncoderPreset
+        config["encoder_quality"] = rtxQualityPreset
+        config["rate_control_mode"] = rtxRateControlMode
+        config["bitrate_bps"] = currentBitrate * 1_000_000 // Mbps to bps
+        config["max_bitrate_bps"] = maxBitrate * 1_000_000 // Mbps to bps
+        config["use_10bit"] = tenBitEncodingEnabled
+        config["use_full_range"] = true
+        
+        // RTX A4500 specific optimizations
+        config["nvenc_tuning_preset"] = "hq" // High quality preset for RTX
+        config["nvenc_multi_pass"] = "qres" // Quality optimized multi-pass
+        config["nvenc_low_delay_key_frame_scale"] = 1 // Optimize for low latency
+        config["nvenc_enable_weighted_prediction"] = true
+        
+        // HEVC specific settings
+        if hevcEncodingEnabled {
+            config["hevc_cusize"] = "16x16" // Optimal for RTX A4500
+            config["hevc_temporal_aq"] = true
+            config["hevc_spatial_aq"] = true
+            config["hevc_aq_strength"] = 15 // 1-15, higher means more aggressive quality adaptation
+        }
+        
+        // Cloud gaming optimizations
+        if cloudOptimizedMode {
+            config["gop_size"] = 120 // Larger GOP for better compression
+            config["num_ref_frames"] = 4 // More reference frames for better quality
+            config["filler_data"] = false // Disable filler data for lower latency
+            config["slice_mode"] = 0 // Single slice per frame for better compression
+        } else {
+            config["gop_size"] = 90 // Standard GOP size
+            config["num_ref_frames"] = 1 // Fewer reference frames for lower latency
+        }
+        
+        // WiFi 6E optimizations
+        if wifiBandwidthOptimized {
+            config["max_packet_size"] = ALVRClientApp.gStore.settings.packetSize
+            config["network_buffer_size"] = frameQueueOptimalSize
+        }
+        
+        return config
+    }
+    
+    // Send RTX encoder configuration to server
+    func sendRTXEncoderConfig() {
+        if streamingActive && rtxOptimizationsEnabled {
+            let config = createRTXEncoderConfig()
+            
+            // Convert to JSON
+            if let jsonData = try? JSONSerialization.data(withJSONObject: config, options: []),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                // Send to server
+                alvr_send_encoder_config(jsonString)
+            }
+        }
+    }
+    
     // Poll for NALs and and, when decoded, add them to the frameQueue
     func handleNals(frameData: AlvrVideoFrameData) -> Bool {
         var retVal = true
@@ -323,6 +684,12 @@ class EventHandler: ObservableObject {
         
         if self.needsEncoderReset {
             self.needsEncoderReset = false
+            
+            // Send RTX encoder configuration when resetting encoder
+            if rtxOptimizationsEnabled {
+                sendRTXEncoderConfig()
+            }
+            
             print("Resetting encoder")
             retVal = false
             return retVal
@@ -420,6 +787,16 @@ class EventHandler: ObservableObject {
                 //let imageBufferPtr = Unmanaged.passUnretained(imageBuffer).toOpaque()
                 //print("finish decode: \(timestamp), \(framesSinceLastDecode)")
 
+                // Analyze frame content for adaptive quality if enabled
+                if cloudOptimizedMode && (darkSceneBitrateBoostingEnabled || motionAdaptiveQualityEnabled) {
+                    analyzeFrame(imageBuffer: imageBuffer)
+                }
+                
+                // Track frame latency for adaptive buffering
+                if cloudOptimizedMode && networkBufferingStrategy == .adaptive {
+                    trackFrameLatency(timestamp: timestamp)
+                }
+                
                 objc_sync_enter(frameQueueLock)
                 framesSinceLastDecode = 0
                 if frameQueueLastTimestamp != timestamp || true
@@ -440,10 +817,11 @@ class EventHandler: ObservableObject {
                     else {
                         frameQueue.append(QueuedFrame(imageBuffer: imageBuffer, timestamp: timestamp, viewParamsValid: false, viewParams: viewParamsDummy))
                     }
-                    if frameQueue.count > 3 {
-                        frameQueue.removeFirst()
+                    
+                    // Limit frame queue size based on optimal size for network conditions
+                    if frameQueue.count > frameQueueOptimalSize + 1 {
+                        frameQueue.removeFirst(frameQueue.count - frameQueueOptimalSize)
                     }
-
 
                     frameQueueLastTimestamp = timestamp
                     frameQueueLastImageBuffer = imageBuffer
@@ -674,6 +1052,16 @@ class EventHandler: ObservableObject {
                     lastIpd = -1
                     currentCodec = -1
                     EventHandler.shared.updateConnectionState(.connected)
+                    
+                    // Send RTX encoder configuration
+                    if rtxOptimizationsEnabled {
+                        sendRTXEncoderConfig()
+                    }
+                    
+                    // Send enhanced foveation parameters if enabled
+                    if enhancedFoveatedRenderingEnabled && WorldTracker.shared.eyeTrackingEnhanced {
+                        sendEnhancedFoveationParameters()
+                    }
                 }
                 if !renderStarted {
                     WorldTracker.shared.sendFakeTracking(viewFovs: viewFovs, targetTimestamp: CACurrentMediaTime() - 1.0)
@@ -839,4 +1227,25 @@ struct QueuedFrame {
     let timestamp: UInt64
     let viewParamsValid: Bool
     let viewParams: [AlvrViewParams]
+}
+
+// Function to send foveation parameters to server
+func alvr_send_foveation_parameters(_ jsonString: String) {
+    // This is a placeholder function - in a real implementation, this would be a C function
+    // exported from the ALVR client library
+    print("Sending foveation parameters: \(jsonString)")
+}
+
+// Function to send bitrate update to server
+func alvr_send_bitrate_update(_ bitrate: Int32) {
+    // This is a placeholder function - in a real implementation, this would be a C function
+    // exported from the ALVR client library
+    print("Sending bitrate update: \(bitrate) bps")
+}
+
+// Function to send encoder configuration to server
+func alvr_send_encoder_config(_ jsonString: String) {
+    // This is a placeholder function - in a real implementation, this would be a C function
+    // exported from the ALVR client library
+    print("Sending encoder config: \(jsonString)")
 }

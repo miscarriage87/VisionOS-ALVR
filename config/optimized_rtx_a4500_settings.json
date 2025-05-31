@@ -1,0 +1,210 @@
+{
+  "video": {
+    "preferred_codec": "HEVC",
+    "use_10bit_encoder": true,
+    "use_full_range_color": true,
+    "preferred_fps": 90.0,
+    "adapter_index": 0,
+    "refresh_rate": 90,
+    "resolution_dropdown": false,
+    "render_resolution": {
+      "type": "Scale",
+      "variant": 1.0
+    },
+    "target_total_bitrate_bps": 70000000,
+    "transcoding_bitrate_bps": {
+      "type": "Adaptive",
+      "variant": {
+        "default_bps": 70000000,
+        "minimum_bps": 30000000,
+        "maximum_bps": 70000000,
+        "max_buffering_s": 0.1,
+        "network_buffering_ms": 50,
+        "recovery_frame_count": 10,
+        "probe_frame_count": 10
+      }
+    },
+    "encoder_config": {
+      "encoder_specific_config": {
+        "type": "Nvenc",
+        "variant": {
+          "performance_preset": "P5",
+          "tuning_preset": "HighQuality",
+          "rate_control_mode": "Vbr",
+          "profile": "Main10",
+          "level": "Auto",
+          "tier": "Auto",
+          "bitrate_average_bps": 70000000,
+          "bitrate_max_bps": 75000000,
+          "latency_target_ms": 0,
+          "gop_length": 120,
+          "num_reference_frames": 4,
+          "enable_weighted_prediction": true,
+          "adaptive_quantization_mode": "Spatial",
+          "filler_data_enabled": false,
+          "entropy_coding": "Cabac",
+          "look_ahead_depth": 0,
+          "temporal_aq_enabled": true,
+          "spatial_aq_enabled": true,
+          "aq_strength": 8,
+          "codec_options": {
+             "hevc_cu_size": "Auto",
+             "hevc_temporal_aq": "true", // Redundant if top-level temporal_aq_enabled is used by NVENC wrapper
+             "hevc_spatial_aq": "true",   // Redundant
+             "hevc_aq_strength": "8"      // Redundant
+          }
+        }
+      }
+    },
+    "foveated_rendering": {
+      "enabled": true,
+      "center_size_x": 0.4,
+      "center_size_y": 0.4,
+      "center_shift_x": 0.0,
+      "center_shift_y": 0.0,
+      "edge_ratio_x": 4.0,
+      "edge_ratio_y": 4.0,
+      "dynamic_foveation_enabled": true,
+      "foveation_strength": 2.0
+    },
+    "color_correction": {
+      "enabled": true,
+      "brightness": 1.0,
+      "contrast": 1.05,
+      "saturation": 1.1,
+      "gamma": 1.0,
+      "sharpening_enabled_server": false
+    },
+    "sharpening": {
+      "enabled": true,
+      "strength": 0.3,
+      "edge_enhancement": 0.2,
+      "limit": 1.5
+    },
+    "max_buffering_frames": 2,
+    "web_gui_present_mode": "Immediate"
+  },
+  "audio": {
+    "preferred_microphone": "",
+    "microphone_sample_rate": 48000,
+    "microphone_frame_size_ms": 10,
+    "game_audio": {
+      "enabled": true,
+      "device_id": "Default",
+      "mute_when_streaming": false,
+      "buffering_config": {
+        "mode": "Automatic",
+        "average_buffering_ms": 30,
+        "max_buffering_ms": 60,
+        "batch_ms": 10
+      }
+    },
+    "microphone": {
+      "enabled": true,
+      "sample_rate": 48000,
+      "frame_size_ms": 10,
+      "buffering_config": {
+        "mode": "Automatic",
+        "average_buffering_ms": 30,
+        "max_buffering_ms": 60,
+        "batch_ms": 10
+      },
+      "virtual_microphone_input_device_id": "Default",
+      "echo_cancellation_mode": "AecOnly",
+      "noise_suppression_mode": "High",
+      "automatic_gain_control_enabled": true
+    }
+  },
+  "headset": {
+    "mode_name": "Apple Vision Pro",
+    "serial_number": "AVP-ALVR-CLOUD",
+    "tracking_ref_only": false,
+    "force_ipd_distance": false,
+    "force_ipd_value_m": 0.063,
+    "controllers_enabled": true,
+    "controllers_mode_name": "Apple Vision Pro Hands",
+    "controllers_serial_number_left": "AVP-ALVR-LHAND-CLOUD",
+    "controllers_serial_number_right": "AVP-ALVR-RHAND-CLOUD",
+    "controllers_tracking_speed_multiplier": 1.0,
+    "controllers_pose_time_offset_s": -0.02,
+    "haptics_intensity_multiplier": 1.0,
+    "haptics_amplitude_curve_power": 1.0,
+    "haptics_min_duration_ms": 5,
+    "haptics_low_duration_ms": 10,
+    "haptics_low_duration_amplitude_multiplier": 1.0,
+    "haptics_high_duration_ms": 20,
+    "haptics_high_duration_amplitude_multiplier": 1.0,
+    "eye_tracking_source_config": {
+        "type": "Client"
+    },
+    "steamvr_pipeline_config": {
+        "type": "ClientSide"
+    },
+    "diagnostics_history_s": 10,
+    "web_gui_display_invalidate_time_ms": 500
+  },
+  "connection": {
+    "client_discovery_port": 9943,
+    "stream_port": 9944,
+    "stream_protocol": "Udp",
+    "aggressive_keyframe_resend": true,
+    "client_send_buffer_bytes": 524288,
+    "server_send_buffer_bytes": 524288,
+    "packet_size": 1400,
+    "max_queued_server_packets": 200,
+    "avoid_congestion": true,
+    "trusted_clients": [],
+    "web_server_port": 8082,
+    "remote_server_address": "",
+    "remote_server_port": 9944,
+    "enable_fec": true,
+    "fec_percentage": 15,
+    "fec_index_count_threshold": 5
+  },
+  "extra": {
+    "revert_confirm_dialog": true,
+    "restart_confirm_dialog": true,
+    "notification_level": "Info",
+    "exclude_notifications_without_id": false,
+    "patches": [],
+    "log_to_disk": true,
+    "openvr_config": {
+      "universe_id": 2,
+      "headset_serial_number": "ALVR-HMD-AVP-CLOUD",
+      "headset_tracking_system_name": "ALVR",
+      "headset_model_number": "Apple Vision Pro (ALVR Cloud)",
+      "headset_driver_version": "ALVR Driver",
+      "headset_manufacturer_name": "ALVR",
+      "headset_render_model_name": "generic_hmd",
+      "headset_registered_device_type": "ALVR/apple_vision_pro_cloud",
+      "controllers_tracking_system_name": "ALVR",
+      "controllers_manufacturer_name": "ALVR",
+      "controllers_model_number": "Apple Vision Pro Hands (ALVR Cloud)",
+      "controllers_render_model_name_left": "generic_controller_left",
+      "controllers_render_model_name_right": "generic_controller_right",
+      "controllers_serial_number_left": "ALVR-AVP-LHAND-CLOUD",
+      "controllers_serial_number_right": "ALVR-AVP-RHAND-CLOUD",
+      "controllers_registered_device_type_left": "ALVR/apple_vision_pro_left_hand_cloud",
+      "controllers_registered_device_type_right": "ALVR/apple_vision_pro_right_hand_cloud",
+      "controllers_input_profile_path_left": "{alvr_dashboard_dir}/resources/input/apple_vision_pro_controller_profile.json",
+      "controllers_input_profile_path_right": "{alvr_dashboard_dir}/resources/input/apple_vision_pro_controller_profile.json"
+    },
+    "theme": "System",
+    "client_dark_mode": false,
+    "codepoint_font_path": "",
+    "language": "System",
+    "show_connection_messages": true,
+    "capture_frame_dir": "",
+    "auto_trust_clients": true,
+    "web_server_use_https": false,
+    "web_server_https_key_path": "",
+    "web_server_https_cert_path": "",
+    "rolling_log_max_size_mb": 100,
+    "rolling_log_max_files": 5,
+    "client_driven_adaptive_quality": {
+        "dark_scene_bitrate_boosting_enabled_by_client": true,
+        "motion_adaptive_quality_enabled_by_client": true
+    },
+    "aggressive_performance_mode_enabled_by_client": true
+  }
+}

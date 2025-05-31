@@ -240,6 +240,17 @@ class WorldTracker {
     var eyeY: Float = 0.0
     var eyeIsMipmapMethod: Bool = true
     var eyeTrackingActive: Bool = false
+
+    // Enhanced Foveated Rendering & Eye Tracking
+    var enhancedFoveationSettings: EnhancedFoveationSettings? = nil
+    var eyeTrackingEnhanced: Bool = false // True if enhanced eye tracking data is available
+
+    // Cloud Gaming Optimizations
+    var cloudGamingOptimized: Bool = true
+    var trackingPredictionLatency: Double = 0.03 // Base prediction latency in seconds, dynamically adjusted
+    var adaptiveTrackingPrediction: Bool = true
+    var lastNetworkJitter: Double = 0.0 // In milliseconds, updated by EventHandler
+    var lastRoundTripTime: Double = 0.0 // In milliseconds, updated by EventHandler
     
     var lastSkeletonLeft:[AlvrPose]? = nil
     var lastSkeletonRight:[AlvrPose]? = nil
@@ -253,6 +264,8 @@ class WorldTracker {
         self.sceneReconstruction = sceneReconstruction
         self.planeDetection = planeDetection
         
+        updateCloudGamingParameters() // Initialize cloud gaming parameters
+
         Task {
             await processReconstructionUpdates()
         }
@@ -266,6 +279,20 @@ class WorldTracker {
             await processHandTrackingUpdates()
         }
     }
+
+    func updateCloudGamingParameters() {
+        self.cloudGamingOptimized = ALVRClientApp.gStore.settings.cloudOptimizedMode
+        self.adaptiveTrackingPrediction = ALVRClientApp.gStore.settings.predictiveFrameGeneration
+
+        if ALVRClientApp.gStore.settings.cloudOptimizedMode {
+            // Use a portion of the streaming latency target for prediction, e.g., 50%
+            // Ensure this doesn't result in negative or excessively large prediction times.
+            let targetLatencyBasedPrediction = Double(ALVRClientApp.gStore.settings.streamingLatencyTarget / 1000.0) * 0.5
+            self.trackingPredictionLatency = max(0.01, min(0.07, targetLatencyBasedPrediction)) // Clamp between 10ms and 70ms
+        } else {
+            self.trackingPredictionLatency = 0.02 // Default 20ms for non-cloud optimized
+        }
+    }
     
     func resetPlayspace() {
         print("Reset playspace")
@@ -276,6 +303,7 @@ class WorldTracker {
         self.lastUpdatedTs = 0
         self.crownPressCount = 0
         self.sentPoses = 0
+        updateCloudGamingParameters() // Re-apply cloud settings on reset
     }
     
     func initializeAr() async  {
@@ -344,7 +372,7 @@ class WorldTracker {
             case .added, .updated:
                 worldAnchors[update.anchor.id] = update.anchor
                 if !self.worldTrackingAddedOriginAnchor && keepSteamVRCenter && (worldOriginAnchor == nil || update.anchor.id != worldOriginAnchor!.id) {
-                    print("Early origin anchor?", anchorDistanceFromOrigin(anchor: update.anchor), "Current Origin,", self.worldOriginAnchor?.id)
+                    print("Early origin anchor?\", anchorDistanceFromOrigin(anchor: update.anchor), \"Current Origin,\", self.worldOriginAnchor?.id)")
                     
                     // If we randomly get an anchor added within 3.5m, consider that our origin
                     if anchorDistanceFromOrigin(anchor: update.anchor) < 3.5 && update.anchor.isTracked && (worldOriginAnchor == nil || anchorDistanceFromOrigin(anchor: update.anchor) <= anchorDistanceFromOrigin(anchor: worldOriginAnchor!)) {
@@ -364,7 +392,7 @@ class WorldTracker {
                 else {
                     if worldOriginAnchor != nil && update.anchor.id != worldOriginAnchor!.id {
                         if anchorDistanceFromAnchor(anchorA: update.anchor, anchorB: worldOriginAnchor!) <= 3.5 && update.anchor.isTracked {
-                            print("Removed anchor for being too close:", update.anchor.id)
+                            print("Removed anchor for being too close:\", update.anchor.id)")
                             worldAnchorsToRemove.append( update.anchor)
                         }
                     }
@@ -381,7 +409,7 @@ class WorldTracker {
                         continue
                     }
 
-                    print("recentering against", update.anchor.id, "... count", crownPressCount)
+                    print("recentering against\", update.anchor.id, \"... count\", crownPressCount)")
                     let anchorTransform = update.anchor.originFromAnchorTransform
                     if keepSteamVRCenter {
                         self.worldTrackingSteamVRTransform = anchorTransform
@@ -762,7 +790,7 @@ class WorldTracker {
                 
                 var swingQuat = swing.quaternion.toQuatf()
                 if hand.chirality == .right {
-                    //swingQuat = swingQuat * simd_quatf(from: simd_float3(0.0, 1.0, 0.0), to: simd_float3(0.0, 0.0, 1.0))
+                    //swingQuat = swingQuat * simd_quatf(from: simd_float3(0.0, 1.0, 0.0), to: simd_float3(0.0, 0.0, 1.0))\
                 }
                 else {
                     swingQuat = swingQuat * simd_quatf(from: simd_float3(0.0, 1.0, 0.0), to: simd_float3(0.0, 0.0, 1.0))
@@ -810,7 +838,7 @@ class WorldTracker {
             return AlvrButtonValue(tag: ALVR_BUTTON_VALUE_SCALAR, AlvrButtonValue.__Unnamed_union___Anonymous_field1(AlvrButtonValue.__Unnamed_union___Anonymous_field1.__Unnamed_struct___Anonymous_field1(scalar: val)))
         }
         
-        // TODO: keyboards? trackpads?
+        // TODO: keyboards? trackpads?\
         /*
         if let keyboard = GCKeyboard.coalesced?.keyboardInput {
               // bind to any key-up/-down
@@ -1039,7 +1067,7 @@ class WorldTracker {
                         var duration = leftHapticsEnd - leftHapticsStart
                         var amplitude = leftHapticsAmplitude
                         if duration < 0 {
-                            print("Skip haptic, negative duration?", duration)
+                            print("Skip haptic, negative duration?\", duration)")
                             amplitude = 0.0
                             duration = 0.032
                         }
@@ -1102,7 +1130,7 @@ class WorldTracker {
                         var duration = rightHapticsEnd - rightHapticsStart
                         var amplitude = rightHapticsAmplitude
                         if duration < 0 {
-                            print("Skip haptic, negative duration?", duration)
+                            print("Skip haptic, negative duration?\", duration)")
                             amplitude = 0.0
                             duration = 0.032
                         }
@@ -1157,6 +1185,27 @@ class WorldTracker {
         // we have to query the last head timestamp again (the anchor will be different than the last time we asked)
         // HACK: Device anchors have had hidden state in the past, fetch this first
         var deviceAnchorLastRefetched = worldTracking.queryDeviceAnchor(atTimestamp: lastHeadTimestamp)
+
+        // Update cloud parameters in case settings changed
+        updateCloudGamingParameters()
+
+        var finalReportedTimestampForALVR = reportedTargetTimestamp
+        if self.cloudGamingOptimized {
+            var cloudAdditionalPredictionS: Double = 0.0
+            if self.adaptiveTrackingPrediction {
+                // Convert RTT and Jitter from ms to seconds for calculation
+                let rttSeconds = self.lastRoundTripTime / 1000.0
+                let jitterSeconds = self.lastNetworkJitter / 1000.0
+                // Adaptive prediction: base cloud latency + half RTT + jitter
+                cloudAdditionalPredictionS = self.trackingPredictionLatency + (rttSeconds / 2.0) + jitterSeconds
+            } else {
+                cloudAdditionalPredictionS = self.trackingPredictionLatency
+            }
+            // Clamp additional prediction to avoid being too aggressive (e.g., max 70ms additional)
+            cloudAdditionalPredictionS = min(0.07, max(0.0, cloudAdditionalPredictionS))
+            finalReportedTimestampForALVR += cloudAdditionalPredictionS
+        }
+        let reportedTargetTimestampNS = UInt64(finalReportedTimestampForALVR * Double(NSEC_PER_SEC))
         
         var skeletonsEnabled = false
         var steamVRInput2p0Enabled = false
@@ -1196,6 +1245,8 @@ class WorldTracker {
         }
         
         // Predict as far into the future as Apple will allow us.
+        // ARKit query uses the original targetTimestamp (which includes renderer's base prediction)
+        targetTimestampWalkedBack = targetTimestamp
         for _ in 0...20 {
             deviceAnchor = worldTracking.queryDeviceAnchor(atTimestamp: targetTimestampWalkedBack)
             if deviceAnchor != nil {
@@ -1253,9 +1304,6 @@ class WorldTracker {
         }
         sentPoses += 1
         
-        //let targetTimestampNS = UInt64(targetTimestampWalkedBack * Double(NSEC_PER_SEC))
-        let reportedTargetTimestampNS = UInt64(reportedTargetTimestamp * Double(NSEC_PER_SEC))
-
         floorCorrectionTransform = simd_float3() // TODO: Set floor height to plane provider floor height? Raycast it dynamically? idk.
 #if XCODE_BETA_16
         if #available(visionOS 2.0, *) {

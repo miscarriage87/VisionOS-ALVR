@@ -17,9 +17,139 @@
 import SwiftUI
 import RealityKit
 import QuartzCore
+import simd
 
 let eyeTrackWidth = Int(Float(renderWidth) * 2.5)
 let eyeTrackHeight = Int(Float(renderHeight) * 2.5)
+
+// Kalman filter for eye tracking smoothing
+class EyeTrackingKalmanFilter {
+    // State variables
+    private var x: simd_float2 = simd_float2(0, 0) // Position
+    private var v: simd_float2 = simd_float2(0, 0) // Velocity
+    
+    // Covariance matrix P
+    private var P: simd_float2x2 = simd_float2x2(
+        diagonal: simd_float2(1.0, 1.0) // Initial uncertainty
+    )
+    
+    // Process noise (how much we trust the model vs. measurements)
+    private var processNoise: Float = 0.01
+    
+    // Measurement noise (how much we trust the measurements)
+    private var measurementNoise: Float = 0.1
+    
+    // Last update time
+    private var lastUpdateTime: Double = CACurrentMediaTime()
+    
+    // Configure filter parameters based on settings
+    func configure(processNoise: Float, measurementNoise: Float) {
+        self.processNoise = processNoise
+        self.measurementNoise = measurementNoise
+    }
+    
+    // Reset the filter
+    func reset() {
+        x = simd_float2(0, 0)
+        v = simd_float2(0, 0)
+        P = simd_float2x2(diagonal: simd_float2(1.0, 1.0))
+        lastUpdateTime = CACurrentMediaTime()
+    }
+    
+    // Update the filter with a new measurement
+    func update(measurement: simd_float2) -> simd_float2 {
+        let currentTime = CACurrentMediaTime()
+        let dt = Float(currentTime - lastUpdateTime)
+        lastUpdateTime = currentTime
+        
+        if dt <= 0.0001 || dt > 0.1 { // Avoid division by zero or too large dt
+            // If time step is invalid or too large, reset or just use measurement
+            x = measurement // Or consider a reset if dt is too large
+            // P might also need resetting or scaling if dt is too large
+            return x
+        }
+        
+        // --- Prediction Step ---
+        // Predicted state: x_predicted = x + v * dt
+        let x_predicted = x + v * dt
+        
+        // Predicted covariance: P_predicted = P + Q
+        // Q is process noise covariance matrix
+        let Q_scalar = processNoise * dt // Simplified process noise scaling
+        let Q_matrix = simd_float2x2(diagonal: simd_float2(Q_scalar, Q_scalar))
+        let P_predicted = P + Q_matrix
+        
+        // --- Update Step ---
+        // Measurement noise covariance matrix R
+        let R_matrix = simd_float2x2(diagonal: simd_float2(measurementNoise, measurementNoise))
+        
+        // Innovation (or residual) covariance: S = H * P_predicted * H_transpose + R
+        // Assuming H (observation matrix) is identity (simd_float2x2(1.0))
+        // So, S = P_predicted + R_matrix
+        let S = P_predicted + R_matrix
+        
+        // Optimal Kalman gain: K = P_predicted * H_transpose * S_inverse
+        // Assuming H is identity, K = P_predicted * S_inverse
+        let S_inverse = simd_inverse(S) // This might fail if S is singular
+        let K = P_predicted * S_inverse
+        
+        // Updated state estimate: x_updated = x_predicted + K * (measurement - H * x_predicted)
+        // Assuming H is identity, innovation = measurement - x_predicted
+        let innovation = measurement - x_predicted
+        x = x_predicted + K * innovation // K is 2x2, innovation is 2x1. Result is 2x1.
+        
+        // Update velocity estimate (heuristic, as v is not formally in the state vector x for this simple KF)
+        // v_updated = v + some_factor * K * (innovation / dt - v_current_or_predicted)
+        // The (innovation / dt) term is a rough estimate of the velocity "correction" implied by the measurement.
+        if dt > 0.0001 { // Avoid division by zero
+             v = v + (K * (innovation / dt - v)) * Float(0.5) // K*(vec-vec) -> K*vec -> vec. vec * scalar.
+        }
+
+        // Updated covariance: P_updated = (I - K * H) * P_predicted
+        // Assuming H is identity, P_updated = (I - K) * P_predicted
+        let I_matrix = simd_float2x2(1.0) // Identity matrix for 2x2
+        P = (I_matrix - K) * P_predicted
+        
+        return x
+    }
+    
+    // Get predicted position for a future time
+    func predict(timeAhead: Float) -> simd_float2 {
+        return x + v * timeAhead
+    }
+}
+
+// Enhanced eye tracking configuration
+struct EnhancedEyeTrackingConfig {
+    var enabled: Bool = true
+    var useKalmanFilter: Bool = true
+    var usePrediction: Bool = true
+    var predictionTimeAhead: Float = 0.05 // 50ms prediction
+    var adaptiveSmoothing: Bool = true
+    var processNoiseMin: Float = 0.005
+    var processNoiseMax: Float = 0.05
+    var measurementNoiseMin: Float = 0.05
+    var measurementNoiseMax: Float = 0.5
+    var saccadeThreshold: Float = 0.1 // Threshold for detecting rapid eye movements
+    var fixationDamping: Float = 0.9 // Damping factor for fixations
+    
+    // Initialize from global settings
+    init(from settings: GlobalSettings) {
+        self.enabled = settings.enhancedFoveatedRendering
+        self.usePrediction = settings.predictiveFrameGeneration
+        self.predictionTimeAhead = settings.cloudOptimizedMode ? 0.05 : 0.03
+        self.adaptiveSmoothing = true
+        
+        // Adjust smoothing based on network conditions
+        if settings.cloudOptimizedMode {
+            // More aggressive smoothing for cloud gaming
+            self.processNoiseMin = 0.003
+            self.processNoiseMax = 0.03
+            self.measurementNoiseMin = 0.08
+            self.measurementNoiseMax = 0.6
+        }
+    }
+}
 
 class NotificationShiftRegisterVar {
     var raw: UInt32 = 0
@@ -81,9 +211,113 @@ class NotificationManager: ObservableObject {
     var xReg = NotificationShiftRegisterVar("EyeTrackingInfoX")
     var yReg = NotificationShiftRegisterVar("EyeTrackingInfoY")
     
+    // Kalman filter for eye position smoothing
+    private let kalmanFilter = EyeTrackingKalmanFilter()
+    
+    // Configuration for eye tracking
+    private var config = EnhancedEyeTrackingConfig(from: ALVRClientApp.gStore.settings)
+    
+    // Eye movement statistics for adaptive filtering
+    private var lastEyePosition = simd_float2(0, 0)
+    private var eyeVelocity = simd_float2(0, 0)
+    private var lastUpdateTime = CACurrentMediaTime()
+    private var isSaccade = false
+    private var fixationDuration = 0.0
+    private var lastConfigUpdate = 0.0
+    
     func updateSingleton() {
-        WorldTracker.shared.eyeX = (self.xReg.asFloat - 0.5) * 1.0
-        WorldTracker.shared.eyeY = ((1.0 - self.yReg.asFloat) - 0.5) * 1.0
+        // Get raw eye position
+        let rawX = (self.xReg.asFloat - 0.5) * 1.0
+        let rawY = ((1.0 - self.yReg.asFloat) - 0.5) * 1.0
+        let rawPosition = simd_float2(rawX, rawY)
+        
+        // Calculate time since last update
+        let currentTime = CACurrentMediaTime()
+        let dt = currentTime - lastUpdateTime
+        // lastUpdateTime is updated within kalmanFilter.update or here if not using filter
+        
+        // Update configuration periodically
+        if currentTime - lastConfigUpdate > 5.0 {
+            config = EnhancedEyeTrackingConfig(from: ALVRClientApp.gStore.settings)
+            lastConfigUpdate = currentTime
+        }
+        
+        // Apply filtering
+        var filteredPosition = rawPosition
+        if config.useKalmanFilter && dt > 0 && dt < 0.1 { // dt check before calling update
+            filteredPosition = kalmanFilter.update(measurement: rawPosition)
+            // lastUpdateTime is updated inside kalmanFilter.update
+        } else {
+            lastUpdateTime = currentTime // Update time if filter not used or dt is out of bounds
+        }
+
+        // Calculate eye velocity for adaptive filtering (based on filtered position)
+        if dt > 0.0001 && dt < 0.1 { // Use a small epsilon for dt
+            let newVelocity = (filteredPosition - lastEyePosition) / Float(dt)
+            eyeVelocity = simd_mix(eyeVelocity, newVelocity, simd_float2(Float(0.3), Float(0.3))) // Smooth velocity calculation
+            
+            // Detect if this is a saccade (rapid eye movement)
+            let velocityMagnitude = simd_length(eyeVelocity)
+            let newIsSaccade = velocityMagnitude > config.saccadeThreshold
+            
+            if newIsSaccade != isSaccade {
+                isSaccade = newIsSaccade
+                if isSaccade {
+                    fixationDuration = 0.0
+                    
+                    // During saccades, increase process noise to follow movements more quickly
+                    kalmanFilter.configure(
+                        processNoise: config.processNoiseMax,
+                        measurementNoise: config.measurementNoiseMin
+                    )
+                }
+            }
+            
+            if !isSaccade {
+                fixationDuration += dt
+                
+                // During fixations, reduce process noise for stability
+                let fixationFactor = min(1.0, Float(fixationDuration) * 2.0) // Ensure Float cast for dt
+                let processNoise = max(config.processNoiseMin, 
+                                      config.processNoiseMax * (1.0 - fixationFactor))
+                let measurementNoise = min(config.measurementNoiseMax,
+                                         config.measurementNoiseMin + (config.measurementNoiseMax - config.measurementNoiseMin) * fixationFactor)
+                
+                kalmanFilter.configure(
+                    processNoise: processNoise,
+                    measurementNoise: measurementNoise
+                )
+            }
+        }
+        
+        // Store for next update
+        lastEyePosition = filteredPosition
+        
+        // Update world tracker with filtered position
+        WorldTracker.shared.eyeX = filteredPosition.x
+        WorldTracker.shared.eyeY = filteredPosition.y
+        
+        // Create enhanced foveation settings if enabled
+        if config.enabled && ALVRClientApp.gStore.settings.enhancedFoveatedRendering {
+            // Get predicted position if enabled
+            var predictedGazePosition = filteredPosition
+            if config.usePrediction {
+                predictedGazePosition = kalmanFilter.predict(timeAhead: config.predictionTimeAhead)
+            }
+            
+            // Update FFR with eye tracking data
+            let enhancedSettings = FFR.createEnhancedFoveationSettings(
+                globalSettings: ALVRClientApp.gStore.settings,
+                currentEyePosition: predictedGazePosition, // Use predicted gaze for FFR
+                predictTimeAhead: Double(config.predictionTimeAhead)
+            )
+            
+            // Store enhanced settings for foveated rendering
+            WorldTracker.shared.enhancedFoveationSettings = enhancedSettings
+            WorldTracker.shared.eyeTrackingEnhanced = true
+        } else {
+            WorldTracker.shared.eyeTrackingEnhanced = false
+        }
     }
 
     init() {
@@ -97,6 +331,12 @@ class NotificationManager: ObservableObject {
         
         // Eye Y gets shifted last, so use it to sync with WorldTracker
         yReg.finalizeCallback = updateSingleton
+        
+        // Initialize Kalman filter with default settings
+        kalmanFilter.configure(
+            processNoise: config.processNoiseMin,
+            measurementNoise: config.measurementNoiseMax
+        )
     }
     
     func send(_ msg: String) {
@@ -111,7 +351,6 @@ class NotificationManager: ObservableObject {
 }
 
 struct MagicRealityKitEyeTrackingSystemComponent : Component {}
-
 // Every WindowGroup technically counts as a Scene, which means
 // we have to do Shenanigans to make sure that only the correct Scenes
 // get associated with our per-frame system.
@@ -219,7 +458,16 @@ class RealityKitEyeTrackingSystemCorrectlyAssociated : System {
     private var textureResourceY: TextureResource? = nil
     var lastHeartbeat = 0.0
     
+    // Performance optimization: Skip some frames in cloud gaming mode
+    private var frameCounter = 0
+    private var frameSkip = 0
+    
     required init(scene: RealityFoundation.Scene) {
+        // Adjust frame skip based on cloud gaming mode
+        if ALVRClientApp.gStore.settings.cloudOptimizedMode {
+            frameSkip = 1 // Process every other frame in cloud mode
+        }
+        
         let eyeColors = [
             MTLClearColor(red: 0.0, green: 0.0, blue: 0.125, alpha: 1.0),
             MTLClearColor(red: 0.0, green: 0.0, blue: 0.0625, alpha: 1.0),
@@ -316,6 +564,12 @@ class RealityKitEyeTrackingSystemCorrectlyAssociated : System {
     }
     
     func update(context: SceneUpdateContext) {
+        // Performance optimization for cloud gaming: skip some frames
+        frameCounter += 1
+        if frameSkip > 0 && (frameCounter % (frameSkip + 1) != 0) {
+            return
+        }
+        
         // RealityKit automatically calls this every frame for every scene.
         guard let eyeXPlane = context.scene.findEntity(named: "eye_x_plane") as? ModelEntity else {
             return
